@@ -1,1 +1,0 @@
-This was one of the first successfully trained mario models using Zaratan - unfortunately, I used an old reward structure so this data is bad.

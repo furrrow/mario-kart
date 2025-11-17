@@ -50,10 +50,6 @@ def pick_model_folder(base_dir="../../OUTPUT"):
         raise ValueError("No folder selected.")
     return folder_selected
 
-def tile_frames(frames):
-    # Concatenate frames horizontally
-    return np.concatenate(frames, axis=1)
-
 def make_env(rank, base_seed=0):
     def _init():
         env = make_retro(game=args.game, state=args.state, scenario=args.scenario, num_players=1)
@@ -89,14 +85,14 @@ def run_single_trace(env, model, trace_seed, output_dir, trace_idx):
         while not done[0]:
             frame = env.render(mode='rgb_array')#[0]
             imageio.imwrite(os.path.join(frames_dir, f"frame_{step:04d}.png"), frame)
-
-            if trace_idx == 0:
-                action, _ = model.predict(obs, deterministic=True)
-
+            
             if (trace_idx == args.num_traces - 1):
                 env.render(mode='human')
+            if trace_idx == 0:
+                action, _ = model.predict(obs, deterministic=True)
+            else:
+                action, _ = model.predict(obs, deterministic=False)
 
-            action, _ = model.predict(obs, deterministic=False)
             obs, rewards, done, infos = env.step(action)
             total_reward += rewards[0]
 
@@ -118,40 +114,17 @@ def run_parallel_traces(env, model, num_traces, output_dir):
     frames_dir = os.path.join(output_dir, "frames_parallel")
     os.makedirs(frames_dir, exist_ok=True)
 
-    csv_files = []
-    csv_writers = []
-    for idx in range(num_traces):
-        csv_path = os.path.join(output_dir, f"playback_trace{idx:02d}.csv")
-        f = open(csv_path, 'w', newline='')
-        csv_files.append(f)
-        writer = csv.writer(f)
-        writer.writerow(["step","kart1_X","kart1_Y","kart1_direction","kart1_speed",
-                         "DrivingMode","GameMode","getFrame","current_checkpoint",
-                         "surface","lap","reward","total_reward"])
-        csv_writers.append(writer)
 
     while not all(done):
-        frames = [env.env_method('render', mode='rgb_array')[i] for i in range(num_traces)]
-        tiled_frame = tile_frames(frames)
-        imageio.imwrite(os.path.join(frames_dir, f"frame_{step:05d}.png"), tiled_frame)
+        frame = env.render(mode='rgb_array')
+        imageio.imwrite(os.path.join(frames_dir, f"frame_{step:05d}.png"),frame)
 
         action, _ = model.predict(obs, deterministic=False)
         obs, rewards, done, infos = env.step(action)
-
-        for i in range(num_traces):
-            total_reward[i] += rewards[i]
-            info = infos[i]
-            data = [step,
-                    info.get("kart1_X",0), info.get("kart1_Y",0), info.get("kart1_direction",0),
-                    info.get("kart1_speed",0), info.get("DrivingMode",0), info.get("GameMode",0),
-                    info.get("getFrame",0), info.get("current_checkpoint",0), info.get("surface",0),
-                    info.get("lap",0), rewards[i], total_reward[i]]
-            csv_writers[i].writerow(data)
+        env.render(mode='human')
 
         step += 1
 
-    for f in csv_files:
-        f.close()
 
 def main():
     import argparse
@@ -167,11 +140,11 @@ def main():
                         help="Run traces sequentially ('series') or simultaneously ('parallel')")
     args = parser.parse_args()
 
-    if args.model == "pick":
+    if args.model == "pick": #the default
         folder = pick_model_folder()
         print(f"[INFO] Selected folder: {folder}")
         args.model = find_zip_in_folder(folder)
-        output_dir = os.path.dirname(folder)
+        output_dir = os.path.dirname(args.model)
     elif args.model == "latest":
         args.model = find_latest_model()
         print(f"[INFO] Using latest model: {args.model}")
@@ -179,13 +152,13 @@ def main():
     else:
         output_dir = os.path.dirname(args.model)
 
-    if args.mode == 'series':
+    if args.mode == 'series': # the default
         env = create_envs(1, args.seed)
         env = VecTransposeImage(VecFrameStack(env, n_stack=4))
         model = PPO.load(args.model, env=env)
         for i in range(args.num_traces):
             run_single_trace(env, model, args.seed+i, output_dir, i)
-    else:
+    elif args.mode == 'parallel':
         env = create_envs(args.num_traces, args.seed)
         env = VecTransposeImage(VecFrameStack(env, n_stack=4))
         model = PPO.load(args.model, env=env)

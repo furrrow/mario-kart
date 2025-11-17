@@ -12,7 +12,8 @@ import os
 import glob # For wildcard selection
 
 # Load the track map
-map_img = mpimg.imread("Racetrack_map_withgreen - Copy.png")
+#map_img = mpimg.imread("Racetrack_map_withgreen - Copy.png")
+map_img = mpimg.imread("koopabeach_modified_dynamic.png")
 
 # Load Mario's trace
 root = tk.Tk()
@@ -55,8 +56,12 @@ for file in trace_files:
     if 'kart1_X' in df.columns and 'kart1_Y' in df.columns and 'kart1_speed' in df.columns:
         X, Y, speed = df['kart1_X'].values, df['kart1_Y'].values, df['kart1_speed'].values
         for i in range(len(X) - 1):
-            c = 'orangered' if speed[i] > 900 else 'dodgerblue'
-            plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color=c, linewidth=1.5, alpha=0.2)
+            if speed[i]>800:
+                plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color='orangered', linewidth=2.5, alpha=0.2,zorder=10)
+            else:
+                plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color='dodgerblue', linewidth=1.5, alpha=0.2, zorder=5)
+            #c = 'orangered' if speed[i] > 900 else 'dodgerblue'
+            #plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color=c, linewidth=1.5, alpha=0.2)
     else:
         print(f"Warning: {file} missing columns. Skipping.")
 
