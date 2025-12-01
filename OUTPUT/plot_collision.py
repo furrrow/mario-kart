@@ -20,6 +20,7 @@ root.withdraw()  # Hide the main window
 folder_path= filedialog.askdirectory(initialdir="/home/kvsakano/mario-kart/OUTPUT", title="Select folder containing playback_trace CSVs")
 root.destroy()
 filename = os.path.splitext(os.path.basename(folder_path))[0]
+print(folder_path)
 
 
 trace_files = sorted(glob.glob(os.path.join(folder_path, "playback_trace*.csv")))
@@ -54,20 +55,47 @@ for file in trace_files:
     i += 1
 """
 
+# FOR MODEL D AND E
+count = 0
 plt.imshow(map_img, origin='upper',extent=[0, 4200, 4200, 0],alpha=0.5)
 for file in trace_files:
     df = pd.read_csv(file)
     #print(file)
+    if np.sum(df['collision_detection']) == 0:
+        pass
+    else:
+        count += 1
+        if 'kart1_X' in df.columns and 'kart1_Y' in df.columns and 'kart1_speed' in df.columns:
+            X, Y, speed, status, collision_detection = df['kart1_X'].values, df['kart1_Y'].values, df['kart1_speed'].values, df['status'].values, df['collision_detection'].values
+            for i in range(len(X) - 1):
+                if collision_detection[i] == 1:
+                    plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color='orangered', linewidth=6, alpha=0.2,zorder=10)
+                elif status[i] != 0:
+                    plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color='orangered', linewidth=2.5, alpha=0.2,zorder=10)        
+                else:
+                    plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color='dodgerblue', linewidth=1.5, alpha=0.2, zorder=5)
+                #c = 'orangered' if speed[i] > 900 else 'dodgerblue'
+                #plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color=c, linewidth=1.5, alpha=0.2)
+        else:
+            print(f"Warning: {file} missing columns. Skipping.")
+
+print(count)
+
+"""
+#F OR MODEL A B AND C
+plt.imshow(map_img, origin='upper',extent=[0, 4200, 4200, 0],alpha=0.5)
+for file in trace_files:
+    df = pd.read_csv(file)
+    #print(file)
+
     if 'kart1_X' in df.columns and 'kart1_Y' in df.columns and 'kart1_speed' in df.columns:
         X, Y, speed, status, collision_detection = df['kart1_X'].values, df['kart1_Y'].values, df['kart1_speed'].values, df['status'].values, df['collision_detection'].values
         for i in range(len(X) - 1):
-            if collision_detection[i] == 1:
-                plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color='black', linewidth=5, alpha=0.2,zorder=10)
-            elif status[i] != 0:
-                plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color='green', linewidth=2.5, alpha=0.2,zorder=10)        
-            elif speed[i]>800:
+            if speed[i]>800:
                 plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color='orangered', linewidth=2.5, alpha=0.2,zorder=10)
 
+            if collision_detection[i] == 1:
+                plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color='black', linewidth=5, alpha=0.2,zorder=10)        
             else:
                 plt.plot([X[i], X[i+1]], [Y[i], Y[i+1]], color='dodgerblue', linewidth=1.5, alpha=0.2, zorder=5)
             #c = 'orangered' if speed[i] > 900 else 'dodgerblue'
@@ -75,9 +103,7 @@ for file in trace_files:
     else:
         print(f"Warning: {file} missing columns. Skipping.")
 
-
-
-
+"""
 """
 #--------------Plotting the Speed over time -----------------
 plt.figure(figsize=(10,10))
