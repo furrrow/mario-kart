@@ -1,1 +1,0 @@
-All of these traces came from SuperMarioKart-Snes-2025-07-23_16-16-56
