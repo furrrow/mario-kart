@@ -28,21 +28,37 @@ Required software:
 If you encounter issues during setup, please reach out to one of the developers.
 
 # Train and Evaluate Our Models
-The following instructions describe how to train a model using othe reward scripts provided in this repository. 
+The following instructions describe how to train a model using reward scripts and/or weights provided in this repository. 
 
 > Note: Due to uncertainties and randomness in the RL training process, results may not exactly replicate previously trained models.
 
-## Training a model
+## Training a mario-kart model
 1. Move the specified `script.lua` to `mario-kart/stable-retro/retro/data/stable/SuperMarioKart-Snes`
 2. Train the agent using `mario-kart/stable-retro-scripts/scripts/train.py` using either the modified `train.py` file provided in our repo, or the current `train.py` in the original stable-retro-scripts repo.
     1. `--num_timesteps` specifies the number of training timesteps. We recommend at least 1 million timesteps. More complex maps may require significantly more.
     2. `--num_env` specifies the number of parallel environments used during training. We recommend at least 4-8 environments.
 
-## Testing a Model and Generating Traces
+> **Note:** Pre-verification and post-verification models are available in `OUTPUT/ROVER_MODELS`:
+> - `SuperMarioKart-Snes-2025-08-27_14-43-03`: pre-verification model  
+> - `SuperMarioKart-Snes-2025-09-10_00-32-45`:  post-verification model
+
+
+## Generating traces from the mario-kart model
 1. Confirm that training completed successfully. After training is finished, a new folder is created within `mario-kart/OUTPUT` titled `SuperMarioKart-Snes-[DATE]` and within it, a `.zip` file indicates that the model was trained successfully.
 2. Run `python trace.py`. 
     1. `--num_traces` specifies the number of traces to generate. The default is 1.
     2. `--mode` specifies whether the simulation should be run in `series` or `parallel`. Parallel stacks videos into a 3x3 grid, so the recommended number of traces is 9 or fewer. Series generates one environment at a time and run faster. 
+
+> **Note:** Pre-verification and post-verification model traces are stored within each model’s `model_[date]` folder. For example, traces for the pre-verification model can be found in `model_08-27`.
+
+## Training a TurtleBot3 model
+> 🚧 **This section is under construction.**
+
+> Note: model weights are provided in the ____ folder.
+
+## Generating traces from the TurtleBot3 model
+> 🚧 **This section is under construction.**
+
 
 ## Calculating robustness with TeLEX
 [TeLEX](https://github.com/susmitjha/TeLEX) is a passive learning approach that infers STL formulas that characterize the behavior of a dynamical system using only observed signal traces of the system. TeLEX was used in a number of our publications (see Papers 1-3, above).
@@ -53,6 +69,11 @@ Follow the official installation instructions in the TeLEX repository. To run Te
 3. Run in the Telex environment `python test_mario.py`. 
 
 The output file reports the robustness score for each trace.
+
+## Calculating robustness with RTAMT
+> 🚧 **This section is under construction.**
+
+
 
 # Relevant Tips
 A list of useful tips for working with the stable-retro framework. 
@@ -77,11 +98,11 @@ Useful resources for the frameworks used in this project:
 
 #### Reinforcement Learning
 - [StableBaselines3 PPO documentation](https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html) 
-- [OpenAI Spinning Up: PPO Explanation](https://spinningup.openai.com/en/latest/algorithms/ppo.html) which is pretty handy. 
+- [OpenAI Spinning Up: PPO Explanation](https://spinningup.openai.com/en/latest/algorithms/ppo.html)
 
 #### Environment Framework
 - [Gymnasium Documentation](https://gymnasium.farama.org/) 
-Note: This project uses **Gym v0.21**, not Gymnasium v1.0+, so some APIs may differ. Refer to the migration guide if needed.
+> Note: This project uses **Gym v0.21**, not Gymnasium v1.0+, so some APIs may differ. Refer to the migration guide if needed.
 
 #### Emulator Framework
 - [Stable-Retro documentation](https://stable-retro.farama.org/main/getting_started/) 
