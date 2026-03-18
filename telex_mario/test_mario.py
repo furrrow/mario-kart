@@ -1,3 +1,5 @@
+from logging import root
+
 import pandas as pd
 import numpy as np
 import Tkinter as tk          # Package for UI selection of folders
@@ -10,10 +12,20 @@ import matplotlib.pyplot as plt
 
 import telex.synth
 import os
+import re
 import csv
 
 # Note: TeLEX uses python 2.7.18. Some commands like .to_numpy() and filedialog do not exist in this version of python
 # Make sure you are using a version compatible package for python!
+try:
+    import telex.stl as stl_parser
+except Exception:
+    try:
+        import stl as stl_parser
+    except Exception:
+        stl_parser = None
+        print("Warning: no 'stl' parser module found (tried telex.stl and stl). "
+              "Fixed (non-parameter) formulas will be skipped unless you install/enable the parser.")
 
 
 
@@ -43,32 +55,27 @@ def ask_file_or_folder():
 
 
 
-def import_file():
-    # Load Mario's trace or traces
-
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window
-    folder_path = "/home/kvsakano/TeLEX/tests/data/" #    <------------------------------------------ You need to change your folder path, this is the only place it is hardcoded
-    path = tkFileDialog.askopenfilename(initialdir=folder_path,  title="Select a file")
+def import_file(folder_path, root):
+    # Load a single trace
+    path = tkFileDialog.askopenfilename(initialdir=folder_path, title="Select a file",)
     root.destroy()
     return path
 
-def import_folder():
+def import_folder(folder_path, root):
     # Load a folder full of traces
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window
-    folder_path = "/home/kvsakano/TeLEX/tests/data/" #    <------------------------------------------ You need to change your folder path, this is the only (other) place it is hardcoded
     path = tkFileDialog.askdirectory(initialdir=folder_path,  title="Select a folder")
     root.destroy()
     return path   
 
-def preprocessing(path):
-    # If phidot is not part of the file, then this calculates it & adds it as a new file with the {title}_with_phidot.csv
-
+def preprocessing(path, folder_path):
     filename = os.path.splitext(os.path.basename(path))[0]
     df = pd.read_csv(path)
 
-    # Add phidot column if it does not exist
+    # Change the column header of step -> time if it exists
+    if 'step' in df.columns:
+        df.rename(columns={'step': 'time'}, inplace=True)
+
+
     if "phidot" not in df.head():
         print('phidot is not in the dataframe. Calculating and finding it now')
 
@@ -102,91 +109,197 @@ def preprocessing(path):
         phidot = np.gradient(phi)
         df['phidot'] = phidot
 
-        # Change the column header of step -> time if it exists
-        if 'step' in df.columns:
-            df.rename(columns={'step': 'time'}, inplace=True)
 
-        output_file_path =  "/home/kvsakano/TeLEX/tests/data/" + filename + "_with_phidot.csv"
-        df.to_csv(output_file_path, index=False)
-        return output_file_path
-    else:
-        print("Looks like phidot was in the file. Using original file now.")
-        return path
-    
+    # add acceleration = difference of kart1_speed between current and previous timestep
+    if 'kart1_speed' in df.columns:
+        # difference: current - previous; first row will be NaN -> set to 0
+        df['acceleration'] = df['kart1_speed'].diff().fillna(0)
+
+    #output_file_path =  folder_path + "/model_08-27/" + filename + "_postprocessed.csv"
+    output_file_path =  folder_path + "/model_09-10/" + filename + "_postprocessed.csv"
+
+    df.to_csv(output_file_path, index=False)
+    return output_file_path
+
 
     
 def test_stl_file(file_path, templogicdata):
-    # Testing STL on a single file
     print("Performing STL analysis on the file. Hold tight....")
 
     results = []
     for tlStr in templogicdata:
-            stlsyn, value, dur = telex.synth.synthSTLParam(tlStr, file_path)
-            bres, qres = telex.synth.verifySTL(stlsyn, file_path)
-            results.append({"formula": tlStr,
-                            "synthesized stl": stlsyn,
-                            "theta optimal value": value,
-                            "optimization time": dur,
-                            "test result": bres,
-                            "robustness": qres})
+        try:
+            if "?" in tlStr:
+                # Parameterized formula -> run synthesis (returns an STL object)
+                stlsyn, value, dur = telex.synth.synthSTLParam(tlStr, file_path)
+            else:
+                # Fixed formula -> try to parse into an STL object
+                if stl_parser is None:
+                    # no parser available - skip or attempt safe fallback
+                    print("Skipping fixed formula (no parser available):", tlStr)
+                    results.append({
+                        "formula": tlStr,
+                        "synthesized stl": None,
+                        "theta optimal value": None,
+                        "optimization time": None,
+                        "test result": None,
+                        "robustness": None,
+                        "error": "no stl parser available"
+                    })
+                    continue
+                else:
+                    # parse the string into the STL object expected by verifySTL
+                    stlsyn = stl_parser.parse(tlStr)
+                    value, dur = None, None
 
+            # verify (works on the STL object returned by either branch)
+            bres, qres = telex.synth.verifySTL(stlsyn, file_path)
+
+            results.append({
+                "formula": tlStr,
+                "synthesized stl": str(stlsyn),
+                "theta optimal value": value,
+                "optimization time": dur,
+                "test result": bres,
+                "robustness": qres,
+                "error": None
+            })
+
+        except Exception as e:
+            print("Error processing formula '{}': {}".format(tlStr, e))
+            results.append({
+                "formula": tlStr,
+                "synthesized stl": None,
+                "theta optimal value": None,
+                "optimization time": None,
+                "test result": None,
+                "robustness": None,
+                "error": str(e)
+            })
+
+    # write CSV as before
     with open("telex_results.csv", "w") as csvfile:
-        fieldnames = ["formula", "synthesized stl", "theta optimal value", "optimization time", "test result", "robustness"]
+        fieldnames = [
+            "formula", "synthesized stl", "theta optimal value",
+            "optimization time", "test result", "robustness", "error"
+        ]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for row in results:
             writer.writerow(row)
 
 def test_stl_folder(folder_path, templogicdata):
-    # Testing STL on a folder full of csvs
     print("Performing STL analysis on the folder. Hold tight....")
 
-    file_list = [os.path.join(folder_path, f) for f in os.listdir(folder_path)]
-    
+    file_list = [os.path.join(folder_path, f) 
+             for f in os.listdir(folder_path) 
+             if 'postprocessed' in f]
     results = []
+
     for file in file_list:
         for tlStr in templogicdata:
-                stlsyn, value, dur = telex.synth.synthSTLParam(tlStr, file)
-                bres, qres = telex.synth.verifySTL(stlsyn, file)
-                results.append({"formula": tlStr,
-                                "trace": file,
-                                "synthesized stl": stlsyn,
-                                "theta optimal value": value,
-                                "optimization time": dur,
-                                "test result": bres,
-                                "robustness": qres})
+            try:
+                if "?" in tlStr:
+                    stlsyn, value, dur = telex.synth.synthSTLParam(tlStr, file)
+                else:
+                    if stl_parser is None:
+                        print("Skipping fixed formula (no parser available):", tlStr, "on file", file)
+                        results.append({
+                            "formula": tlStr,
+                            "trace": file,
+                            "synthesized stl": None,
+                            "theta optimal value": None,
+                            "optimization time": None,
+                            "test result": None,
+                            "robustness": None,
+                            "error": "no stl parser available"
+                        })
+                        continue
+                    else:
+                        stlsyn = stl_parser.parse(tlStr)
+                        value, dur = None, None
 
+                bres, qres = telex.synth.verifySTL(stlsyn, file)
+
+                results.append({
+                    "formula": tlStr,
+                    "trace": file,
+                    "synthesized stl": str(stlsyn),
+                    "theta optimal value": value,
+                    "optimization time": dur,
+                    "test result": bres,
+                    "robustness": qres,
+                    "error": None
+                })
+
+            except Exception as e:
+                print("Error processing formula '{}' on file '{}': {}".format(tlStr, file, e))
+                results.append({
+                    "formula": tlStr,
+                    "trace": file,
+                    "synthesized stl": None,
+                    "theta optimal value": None,
+                    "optimization time": None,
+                    "test result": None,
+                    "robustness": None,
+                    "error": str(e)
+                })
+
+    # write CSV as before
     with open("telex_results.csv", "w") as csvfile:
-        fieldnames = ["formula", "trace", "synthesized stl", "theta optimal value", "optimization time", "test result", "robustness"]
+        fieldnames = [
+            "formula", "trace", "synthesized stl", "theta optimal value",
+            "optimization time", "test result", "robustness", "error"
+        ]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for row in results:
             writer.writerow(row)
-    return
-    
 
 
+def numerical_key(filename):
+    # Extract the first number appearing in the filename for sorting
+    match = re.search(r'\d+', filename)
+    return int(match.group()) if match else -1
 
 def main():
-
     choice = ask_file_or_folder()
+    
 
-    templogicdata = ['G[0, 72] ( ((phidot > 0.5)|(phidot < -0.5)) -> kart1_speed < a? 0;80)', 'F[0, a? 1;70]( kart1_speed < 20 )', 'G[a? 0;60, b? 10;72](phidot < 0.5)']
+    # ----------- ROVER: Mario Kart---------------------------------- (uncomment each of these to test individual rules)
+    #templogicdata = ['F[0,1100](lap > 128)'] #------------ Completion within TIme Limit (dropped rule from paper)
+    #templogicdata = ['G[0,2000](kart1_speed < 900)']  #------------ Global Speed Limit
+    #templogicdata = ['G[0,2000]((surface < 64 | surface > 64) -> F[0,120](surface < 65 & surface > 63))'] #------------ Stay on Track
+    #templogicdata = ['G[425,575]((phidot >= 1.0) -> U[0,75]((acceleration > -1 & acceleration < 1), (phidot < 0.04363323129)))'] #------------ Wait to Accelerate (for the first curve)
+    
+    # Combines all three rules above.
+    templogicdata = ['G[0,2000](kart1_speed < 900)', 
+                     'G[0,2000]((surface < 64 | surface > 64) -> F[0,120](surface < 65 & surface > 63))', 
+                     'G[425,575]((phidot >= 1.0) -> U[0,75]((acceleration > -1 & acceleration < 1), (phidot < 0.04363323129)))']
+    
 
+    here = os.path.dirname(os.path.abspath(__file__))
+    folder_path = os.path.join(here, "data")           
+    root = tk.Tk()
+    root.withdraw()
     if choice == 'file':
-        path = import_file()
+        path = import_file(folder_path, root)
         print(path + " is a CSV file. Checking for phi, will save new file if phi does not exist.")
-        path = preprocessing(path)
+        path = preprocessing(path, folder_path)
         test_stl_file(path, templogicdata)
 
     elif choice == 'folder':
-        path = import_folder()
-        test_stl_folder(path, templogicdata)
+        folder_path = import_folder(folder_path, root)
+        file_list = [f for f in os.listdir(folder_path) if 'postprocessed' not in f]
+        file_list.sort(key=numerical_key)  # sorts in numeric order
+        file_list = [os.path.join(folder_path, f) for f in file_list]
+
+        for file in file_list:
+            preprocessing(file, folder_path)
+        test_stl_folder(folder_path, templogicdata)
         
     else:
         print(path + " is neither a CSV file nor a directory. Try again!")
-
-
 
 if __name__ == '__main__':
     main()

@@ -1,9 +1,0 @@
-[submodule "stable-retro-scripts"]
-	path = stable-retro-scripts
-	url = https://github.com/MatPoliquin/stable-retro-scripts.git
-[submodule "gym-SuperMarioKart-Snes"]
-	path = gym-SuperMarioKart-Snes
-	url = https://github.com/esteveste/gym-SuperMarioKart-Snes.git
-[submodule "/home/kvsakano/mario-kart/stable-retro"]
-	path = stable-retro
-	url = https://github.com/kvsakano/stable-retro.git
