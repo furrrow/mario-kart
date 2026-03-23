@@ -8,9 +8,14 @@ Relevant Papers:
 3. **A Framework for Specification-Driven Design of Black-Box Controllers through Surrogate-Based Optimization**, pending publication.
 4. **DRIVE-SAFE: Dynamic Robustness and Informed Verification for Environments via Safety Analysis and Formal Evaluation**, pending publication.
 
+### TODO:
+- [ ] upload turtlebot weights to releases (which one should we upload?)
+- [ ] add documentations on installing telex?
+- [ ] update pyproject.toml (or at least attach a requirements.txt)
+- ! I am experimenting with adding them directly into pyproject.toml. does this work?
+- [ ] add / confirm env_utils.py
 
-
-## Members
+#### Members
 - [Kristy Sakano](https://kvsakano.github.io/), at kvsakano@umd.edu
 - [Jim An](https://furrrow.github.io/), at jianyu34@umd.edu 
 - [Alexis Chen](https://www.linkedin.com/in/alexischenn), undergraduate research assistant
@@ -18,19 +23,17 @@ Relevant Papers:
 - [Dr. Mumu Xu](https://user.eng.umd.edu/~mumu/), at mumu@umd.edu
 
 
-## How to Install
+## MarioKart Install
 
-Required software:
+Following repos are needed for installing MarioKart:
 - [Stable-Retro from Farama Foundations](https://github.com/Farama-Foundation/stable-retro)
 - [Stable-Retro-Scripts from MatPoliquin](https://github.com/MatPoliquin/stable-retro-scripts)
-- [Mario Kart SNES ROM files](https://github.com/esteveste/gym-SuperMarioKart-Snes) 
-
-If you encounter issues during setup, please reach out to one of the developers.
-
-# Train and Evaluate Our Models
-The following instructions describe how to train a model using reward scripts and/or weights provided in this repository. 
-
-> Note: Due to uncertainties and randomness in the RL training process, results may not exactly replicate previously trained models.
+- [Mario Kart SNES ROM files](https://github.com/esteveste/gym-SuperMarioKart-Snes)
+We recommend creating git submodules such as:
+```bash
+git submodule add https://github.com/MatPoliquin/stable-retro-scripts
+git submodule add https://github.com/esteveste/gym-SuperMarioKart-Snes
+```
 
 ## Training a mario-kart model
 1. Move the specified `script.lua` to `mario-kart/stable-retro/retro/data/stable/SuperMarioKart-Snes`
@@ -38,9 +41,11 @@ The following instructions describe how to train a model using reward scripts an
     1. `--num_timesteps` specifies the number of training timesteps. We recommend at least 1 million timesteps. More complex maps may require significantly more.
     2. `--num_env` specifies the number of parallel environments used during training. We recommend at least 4-8 environments.
 
-> **Note:** Pre-verification and post-verification models are available in `OUTPUT/ROVER_MODELS`:
-> - `SuperMarioKart-Snes-2025-08-27_14-43-03`: pre-verification model  
-> - `SuperMarioKart-Snes-2025-09-10_00-32-45`:  post-verification model
+> Pre-verification and post-verification models are available in our [releases](https://github.com/umd-xlab/mario-kart/releases/tag/v1.0.0):
+> - [pre-verification model](https://github.com/umd-xlab/mario-kart/releases/download/v1.0.0/preprocessed_traces_pre-verification_model.zip)
+> - [post-verification model](https://github.com/umd-xlab/mario-kart/releases/download/v1.0.0/preprocessed_traces_post-verification_model.zip)
+
+> **Note:** Due to uncertainties and randomness in the RL training process, results may not exactly replicate previously trained models.
 
 
 ## Generating traces from the mario-kart model
@@ -51,14 +56,88 @@ The following instructions describe how to train a model using reward scripts an
 
 > **Note:** Pre-verification and post-verification model traces are stored within each model’s `model_[date]` folder. For example, traces for the pre-verification model can be found in `model_08-27`.
 
-## Training a TurtleBot3 model
-> 🚧 **This section is under construction.**
+## Turtlebot3 Install
 
-> Note: model weights are provided in the ____ folder.
+Please closely follow the Turtlebot3 [e-manual](https://emanual.robotis.com/docs/en/platform/turtlebot3/quick-start/). 
+The Turtlebot3 portion of this project is expected to be installed in a **separate ROS2 workspace**. 
+The manual clones numerous repositories including their machine learning repo. Please follow the official documentations 
+from the turtlebot3 repo except their Machine Leanring repo.
+
+For this project, we have created a 
+[fork of the Turtlebot3 Machine Learning repo](https://github.com/furrrow/turtlebot3_machine_learning/tree/custom). Please use 
+our turtlebot3_machine_learning repo instead of theirs. All other repos should be cloned/installed from the turtlebot3 instructions.
+- We have implemented a PPO agent instead of the original DQN agent.
+- Please see [ppo_agent.py](https://github.com/furrrow/turtlebot3_machine_learning/blob/custom/turtlebot3_dqn/turtlebot3_dqn/ppo_agent.py) for further details.
+
+After install, the project structure may look something like this:
+```
+~/turtlebot3_ws/
+└─ src/
+   └─ DynamixelSDK/
+      turtlebot3/
+      turtlebot3_msgs/
+      turtlebot3_simulations/
+      turtlebot3_machine_learning/ (clone our fork instead of the official repo)
+      └─ turtlebot3_dqn/
+         └─ saved_model/
+            └─ stageXYZ.h5 (saved model files live here)
+         └─ turtlebot3_dqn/
+            └─ ppo_agent.py
+               plot_h5_file.py
+               ...
+```
+
+## Training a PPO model in TurtleBot3
+We strongly encourage you to follow the official Turtlebot3 [machine-learning page](https://emanual.robotis.com/docs/en/platform/turtlebot3/machine_learning/#machine-learning).
+After installation, please follow the documentation to make sure ROS2 is sourced, environment variables such as \$TURTLEBOT3_MODEL,
+\$ROS_DOMAIN_ID are properly set. To run, four separate terminals are needed.
+```bash
+# Bring up the gazebo scenario
+ros2 launch turtlebot3_gazebo turtlebot3_dqn_stage2.launch.py 
+```
+```bash
+# Run Gazebo environment node
+ros2 run turtlebot3_dqn dqn_gazebo 2
+```
+```bash
+# Run DQN environment node
+ros2 run turtlebot3_dqn dqn_environment
+```
+```bash
+# launch the ppo_agent
+python3 src/turtlebot3_machine_learning/turtlebot3_dqn/turtlebot3_dqn/ppo_agent.py
+```
+
+Our model weights are available in our [releases](https://github.com/umd-xlab/mario-kart/releases/tag/v1.0.0).
+> Note, the turtlebot3 repo is constantly changing without notice. While we provide our model weights you may want to simply train new models from scratch.
+
 
 ## Generating traces from the TurtleBot3 model
-> 🚧 **This section is under construction.**
-
+Once PPO models are trained, they can be evaluated using a very similar process
+```bash
+# Bring up the gazebo scenario
+ros2 launch turtlebot3_gazebo turtlebot3_dqn_stage2.launch.py 
+```
+The dqn_gazebo.py will take an extra argument to save the goal location from the simulations
+```bash
+# Run Gazebo environment node & record goal locations
+ros2 run turtlebot3_dqn dqn_gazebo 2 1
+# the extra argument at the end triggers the node to record goal locations
+```
+```bash
+# Run DQN environment node
+ros2 run turtlebot3_dqn dqn_environment
+```
+the ppo_inference.py has a list of models that needs to be manually populated. The script will go through each model on the list,
+evaluating them according to the number of episodes specified by the argparse argument.
+```bash
+# launch the ppo_agent using the inference script
+python3 src/turtlebot3_machine_learning/turtlebot3_dqn/turtlebot3_dqn/ppo_inference.py --episodes 5
+```
+the above script will generate 2 files, a csv file with the goal locations during evaluation, and an h5 file 
+containing the traces taken by the turtlebot. The traces and goals can be visualized using plot_h5_file.py (where the 
+names of the h5 and csv files will need to be added manually),
+or passed along to TeLEX for STL analysis.
 
 ## Calculating robustness with TeLEX
 [TeLEX](https://github.com/susmitjha/TeLEX) is a passive learning approach that infers STL formulas that characterize the behavior of a dynamical system using only observed signal traces of the system. TeLEX was used in a number of our publications (see Papers 1-3, above).
@@ -85,13 +164,7 @@ A list of useful tips for working with the stable-retro framework.
 4. Various environmental parameters can be observed in the right-hand pane. It may also be useful to observe when the scenario is 'Done' for the ending condition. 
 
 
-## Training Evaluation with Tensorboard
-We use Tensorboard to evaluate the training post-hoc. With a given training `.tfevents` data set, you can check the cumulative rewards / episode to ensure convergence. To install and run...
-1. Install tensorflow (contains tensorboard) if not already done. `pip install tensorflow`
-2. Put the .tfevents file in an accessible folder with NO spaces in the file path
-3. Open your python (or cmd) terminal and run `tensorboard.main --logdir`
-4. Then open `http://localhost:6006/` (or whatever localhost is recommended by tensorboard) in your browser. This should be the board to inspect data!
-
+> Note: Tensorboard can be used to evaluate the training post-hoc. With a given training `.tfevents` data set, you can check the cumulative rewards / episode to ensure convergence. 
 
 ## Relevant Documentation
 Useful resources for the frameworks used in this project:
