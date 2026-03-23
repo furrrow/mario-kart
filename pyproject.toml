@@ -1,0 +1,20 @@
+[project]
+name = "mario-kart"
+version = "1.0.0"
+description = "Official Repo for the ROVER paper"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "gymnasium>=1.2.3",
+    "imageio>=2.37.3",
+    "numpy>=2.4.3",
+    "scipy>=1.17.1",
+    "stable-baselines3>=2.7.1",
+    "tk>=0.1.0",
+    "stable-retro @ git+https://github.com/Farama-Foundation/stable-retro.git@master",
+]
+
+[tool.uv.workspace]
+members = [
+    "stable-retro",
+]
