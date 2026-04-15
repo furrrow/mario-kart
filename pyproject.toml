@@ -12,6 +12,7 @@ dependencies = [
     "stable-baselines3>=2.7.1",
     "tk>=0.1.0",
     "stable-retro @ git+https://github.com/Farama-Foundation/stable-retro.git@master",
+    "rtamt>=0.3.5",
 ]
 
 [tool.uv.workspace]
